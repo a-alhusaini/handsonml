@@ -1,0 +1,57 @@
+# Housing
+
+```elixir
+Mix.install([
+  {:nx, "~> 0.4"},
+  {:explorer, "~> 0.4"},
+  {:exla, "~> 0.4"},
+  {:vega_lite, "~> 0.1.5"},
+  {:kino_vega_lite, "~> 0.1.1"},
+  {:httpoison, "~> 1.8"}
+])
+```
+
+## Fetching The Dataset
+
+```elixir
+defmodule FetchDataSet do
+  @download_root "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
+  @housing_path Path.join(["ch2", "datasets", "housing"])
+  @housing_url @download_root <> "datasets/housing/housing.tgz"
+
+  def run(housing_url \\ @housing_url, housing_path \\ @housing_path) do
+    if not File.dir?(housing_path) do
+      File.mkdir_p!(housing_path)
+    end
+
+    resp = HTTPoison.get!(housing_url)
+    tgz_path = Path.join([housing_path, "housing.tgz"])
+    File.write!(tgz_path, resp.body)
+    :erl_tar.extract(tgz_path, [:compressed, cwd: housing_path])
+
+    IO.puts("Download successful")
+  end
+end
+
+FetchDataSet.run()
+```
+
+```elixir
+house_df = Explorer.DataFrame.from_csv!("./ch2//datasets/housing/housing.csv")
+
+latitudes =
+  house_df
+  |> Explorer.DataFrame.select("median_house_value")
+  |> Explorer.DataFrame.to_columns()
+
+alias VegaLite, as: Vl
+
+Vl.new(height: 500, width: 800)
+|> Vl.data_from_values(
+  median_house_value: latitudes["median_house_value"],
+  length: 0..Enum.count(latitudes["median_house_value"])
+)
+|> Vl.mark(:bar)
+|> Vl.encode_field(:x, "length", type: :quantitative)
+|> Vl.encode_field(:y, "median_house_value", type: :quantitative)
+```
