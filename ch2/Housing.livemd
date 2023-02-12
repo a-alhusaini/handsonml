@@ -93,44 +93,36 @@ defmodule StratifiedShuffle do
 end
 ```
 
-```elixir
-require Explorer.DataFrame
-
-full_set = Explorer.DataFrame.from_csv!("./ch2/datasets/housing/housing.csv")
-
-# add income_categorization to dataset
-full_set =
-  Explorer.DataFrame.put(
-    full_set,
-    "income_cat",
-    Enum.map(
-      full_set["median_income"]
-      |> Explorer.Series.to_enum(),
-      fn income ->
-        cond do
-          income < 1.5 -> 1
-          income < 3.0 -> 2
-          income < 4.5 -> 3
-          income < 6.0 -> 4
-          true -> 5
-        end
-      end
-    )
-  )
-
-IO.puts("Added income categories to dataset")
-
-IO.inspect(full_set)
-
-{train_set, test_set} = StratifiedShuffle.run(full_set, "income_cat")
-```
-
-<!-- livebook:{"attrs":{"chart_title":null,"height":null,"layers":[{"chart_type":"bar","color_field":null,"color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"test_set","x_field":"__count__","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":null,"y_field":"income_cat","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+## train/test split implementation
 
 ```elixir
-VegaLite.new()
-|> VegaLite.data_from_values(test_set, only: ["income_cat"])
-|> VegaLite.mark(:bar)
-|> VegaLite.encode(:x, aggregate: :count)
-|> VegaLite.encode_field(:y, "income_cat", type: :quantitative)
+defmodule SplitTrainTest do
+  require Explorer.DataFrame
+
+  def run() do
+    full_set = Explorer.DataFrame.from_csv!("./ch2/datasets/housing/housing.csv")
+
+    # add income_categorization to dataset
+    full_set =
+      Explorer.DataFrame.put(
+        full_set,
+        "income_cat",
+        Enum.map(
+          full_set["median_income"]
+          |> Explorer.Series.to_enum(),
+          fn income ->
+            cond do
+              income < 1.5 -> 1
+              income < 3.0 -> 2
+              income < 4.5 -> 3
+              income < 6.0 -> 4
+              true -> 5
+            end
+          end
+        )
+      )
+
+    StratifiedShuffle.run(full_set, "income_cat")
+  end
+end
 ```
