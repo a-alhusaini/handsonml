@@ -36,22 +36,101 @@ end
 FetchDataSet.run()
 ```
 
+## Creating a test set
+
+The issue with creating a dataset by picking random values from the data is that there is a chance of a sampling bias occurring.
+
+To avoid this, prefer creating the test set with stratified shuffling. Stratified shuffling is when you seperate a certain attribute into a few categories and pick 20% of each category of that attribute and use that to represent your test set.
+
+This approach is valid in this situation. I will use the median income attribute for this stratified shuffle.
+
+## Stratified Shuffle Implementation
+
 ```elixir
-house_df = Explorer.DataFrame.from_csv!("./ch2//datasets/housing/housing.csv")
+defmodule StratifiedShuffle do
+  require Explorer.DataFrame
 
-latitudes =
-  house_df
-  |> Explorer.DataFrame.select("median_house_value")
-  |> Explorer.DataFrame.to_columns()
+  alias Explorer.DataFrame
+  alias Explorer.Series
 
-alias VegaLite, as: Vl
+  def run(original_df, category_column) do
+    categories = DataFrame.distinct(original_df, [category_column])
+    categories = Series.to_list(categories[category_column])
 
-Vl.new(height: 500, width: 800)
-|> Vl.data_from_values(
-  median_house_value: latitudes["median_house_value"],
-  length: 0..Enum.count(latitudes["median_house_value"])
-)
-|> Vl.mark(:bar)
-|> Vl.encode_field(:x, "length", type: :quantitative)
-|> Vl.encode_field(:y, "median_house_value", type: :quantitative)
+    %{original_df: train_set, stratified_shuffle_df: test_set} =
+      Enum.reduce(
+        categories,
+        %{
+          original_df: original_df,
+          stratified_shuffle_df: original_df |> DataFrame.slice([0, 0])
+        },
+        fn category, %{original_df: original_df, stratified_shuffle_df: stratified_shuffle_df} ->
+          testing =
+            DataFrame.filter_with(original_df, fn row ->
+              Series.equal(row[category_column], category)
+            end)
+            |> DataFrame.sample(0.2, seed: 42)
+
+          %{
+            original_df: original_df,
+            stratified_shuffle_df: DataFrame.concat_rows(stratified_shuffle_df, testing)
+          }
+        end
+      )
+
+    # Remove test samples from training set 
+    # also, the code here is badf. Fix when feels like is_tuple(
+
+    train_mapset = DataFrame.to_rows(train_set) |> MapSet.new()
+    test_mapset = DataFrame.to_rows(test_set) |> MapSet.new()
+
+    train_mapset = MapSet.difference(train_mapset, test_mapset)
+
+    train_set = train_mapset |> MapSet.to_list() |> Explorer.DataFrame.new()
+
+    {train_set, test_set}
+  end
+end
+```
+
+```elixir
+require Explorer.DataFrame
+
+full_set = Explorer.DataFrame.from_csv!("./ch2/datasets/housing/housing.csv")
+
+# add income_categorization to dataset
+full_set =
+  Explorer.DataFrame.put(
+    full_set,
+    "income_cat",
+    Enum.map(
+      full_set["median_income"]
+      |> Explorer.Series.to_enum(),
+      fn income ->
+        cond do
+          income < 1.5 -> 1
+          income < 3.0 -> 2
+          income < 4.5 -> 3
+          income < 6.0 -> 4
+          true -> 5
+        end
+      end
+    )
+  )
+
+IO.puts("Added income categories to dataset")
+
+IO.inspect(full_set)
+
+{train_set, test_set} = StratifiedShuffle.run(full_set, "income_cat")
+```
+
+<!-- livebook:{"attrs":{"chart_title":null,"height":null,"layers":[{"chart_type":"bar","color_field":null,"color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"test_set","x_field":"__count__","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":null,"y_field":"income_cat","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+
+```elixir
+VegaLite.new()
+|> VegaLite.data_from_values(test_set, only: ["income_cat"])
+|> VegaLite.mark(:bar)
+|> VegaLite.encode(:x, aggregate: :count)
+|> VegaLite.encode_field(:y, "income_cat", type: :quantitative)
 ```
