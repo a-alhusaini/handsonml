@@ -1,0 +1,21 @@
+# Learning Nx
+
+```elixir
+Mix.install([
+  {:nx, "~> 0.5.0"}
+])
+```
+
+## Section
+
+```elixir
+defmodule Test do
+  import Nx.Defn
+
+  defn fancy() do
+    Nx.tensor([0, 1, 2, 3, 0, 0]) |> Nx.new_axis(-1) |> Nx.equal(Nx.iota({1, 4}))
+  end
+end
+
+Test.fancy()
+```

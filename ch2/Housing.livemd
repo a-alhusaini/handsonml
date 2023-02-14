@@ -133,12 +133,25 @@ end
 {train_split, _} = SplitTrainTest.run()
 ```
 
-<!-- livebook:{"attrs":{"chart_title":null,"height":null,"layers":[{"chart_type":"point","color_field":null,"color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"train_split","x_field":"latitude","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"latitude","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+## Data Exploration Phase
+
+After spliting off a test set we can start working on exploring the available data.
+
+Some things to do
+
+* Plot the data to find patterns (scatter matrixes, boxplots, charts, graphs... blah blah blah)
+* Look at linear and nonlinear corelations related to the data (review pearson's r to get linear corelations)
+* Derive values from the original values and see if there are any interesting things to discover about the derived data points (eg: bedrooms/household...)
+
+<!-- livebook:{"attrs":{"chart_title":null,"height":400,"layers":[{"chart_type":"boxplot","color_field":"median_house_value","color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":"quantitative","data_variable":"train_split","x_field":"housing_median_age","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"median_income","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":400},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
 
 ```elixir
-VegaLite.new()
-|> VegaLite.data_from_values(train_split, only: ["latitude"])
-|> VegaLite.mark(:point)
-|> VegaLite.encode_field(:x, "latitude", type: :quantitative)
-|> VegaLite.encode_field(:y, "latitude", type: :quantitative)
+VegaLite.new(width: 400, height: 400)
+|> VegaLite.data_from_values(train_split,
+  only: ["housing_median_age", "median_income", "median_house_value"]
+)
+|> VegaLite.mark(:boxplot)
+|> VegaLite.encode_field(:x, "housing_median_age", type: :quantitative)
+|> VegaLite.encode_field(:y, "median_income", type: :quantitative)
+|> VegaLite.encode_field(:color, "median_house_value", type: :quantitative)
 ```
