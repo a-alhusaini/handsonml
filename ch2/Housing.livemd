@@ -57,36 +57,38 @@ defmodule StratifiedShuffle do
     categories = DataFrame.distinct(original_df, [category_column])
     categories = Series.to_list(categories[category_column])
 
-    %{original_df: train_set, stratified_shuffle_df: test_set} =
+    %{training_df: train_set, testing_df: test_set} =
       Enum.reduce(
         categories,
         %{
-          original_df: original_df,
-          stratified_shuffle_df: original_df |> DataFrame.slice([0, 0])
+          training_df: original_df,
+          testing_df: original_df |> DataFrame.slice([0, 0])
         },
-        fn category, %{original_df: original_df, stratified_shuffle_df: stratified_shuffle_df} ->
-          testing =
+        fn category, %{training_df: original_df, testing_df: testing_df} ->
+          testing_chunk =
             DataFrame.filter_with(original_df, fn row ->
               Series.equal(row[category_column], category)
             end)
             |> DataFrame.sample(0.2, seed: 42)
 
           %{
-            original_df: original_df,
-            stratified_shuffle_df: DataFrame.concat_rows(stratified_shuffle_df, testing)
+            training_df: original_df,
+            testing_df: DataFrame.concat_rows(testing_df, testing_chunk)
           }
         end
       )
 
-    # Remove test samples from training set 
-    # also, the code here is badf. Fix when feels like is_tuple(
+    remove_test_samples_from_training_set(train_set, test_set)
+  end
 
+  defp remove_test_samples_from_training_set(train_set, test_set) do
     train_mapset = DataFrame.to_rows(train_set) |> MapSet.new()
     test_mapset = DataFrame.to_rows(test_set) |> MapSet.new()
 
-    train_mapset = MapSet.difference(train_mapset, test_mapset)
-
-    train_set = train_mapset |> MapSet.to_list() |> Explorer.DataFrame.new()
+    train_set =
+      MapSet.difference(train_mapset, test_mapset)
+      |> MapSet.to_list()
+      |> Explorer.DataFrame.new()
 
     {train_set, test_set}
   end
@@ -99,12 +101,14 @@ end
 defmodule SplitTrainTest do
   require Explorer.DataFrame
 
+  alias Explorer.DataFrame
+
   def run() do
-    full_set = Explorer.DataFrame.from_csv!("./ch2/datasets/housing/housing.csv")
+    full_set = DataFrame.from_csv!("./ch2/datasets/housing/housing.csv")
 
     # add income_categorization to dataset
     full_set =
-      Explorer.DataFrame.put(
+      DataFrame.put(
         full_set,
         "income_cat",
         Enum.map(
@@ -125,4 +129,16 @@ defmodule SplitTrainTest do
     StratifiedShuffle.run(full_set, "income_cat")
   end
 end
+
+{train_split, _} = SplitTrainTest.run()
+```
+
+<!-- livebook:{"attrs":{"chart_title":null,"height":null,"layers":[{"chart_type":"point","color_field":null,"color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":null,"data_variable":"train_split","x_field":"latitude","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"latitude","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":null},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+
+```elixir
+VegaLite.new()
+|> VegaLite.data_from_values(train_split, only: ["latitude"])
+|> VegaLite.mark(:point)
+|> VegaLite.encode_field(:x, "latitude", type: :quantitative)
+|> VegaLite.encode_field(:y, "latitude", type: :quantitative)
 ```
