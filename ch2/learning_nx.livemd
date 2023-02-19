@@ -2,20 +2,19 @@
 
 ```elixir
 Mix.install([
-  {:nx, "~> 0.5.0"}
+  {:scholar, github: "elixir-nx/scholar"},
+  {:nx, "~> 0.5.0", override: true}
 ])
 ```
 
 ## Section
 
 ```elixir
-defmodule Test do
-  import Nx.Defn
+x = for n <- 1..100, do: [n]
+x = x |> Nx.tensor()
+y = for n <- 1..100, do: n + 2
+y = y |> Nx.tensor()
 
-  defn fancy() do
-    Nx.tensor([0, 1, 2, 3, 0, 0]) |> Nx.new_axis(-1) |> Nx.equal(Nx.iota({1, 4}))
-  end
-end
-
-Test.fancy()
+model = Scholar.Linear.LinearRegression.fit(x, y)
+Scholar.Linear.LinearRegression.predict(model, Nx.tensor([12299]))
 ```

@@ -4,11 +4,14 @@
 Mix.install([
   {:nx, "~> 0.4"},
   {:explorer, "~> 0.4"},
-  {:exla, "~> 0.4"},
   {:vega_lite, "~> 0.1.5"},
+  {:exla, "~> 0.5.0"},
   {:kino_vega_lite, "~> 0.1.1"},
-  {:httpoison, "~> 1.8"}
+  {:httpoison, "~> 1.8"},
+  {:scholar, github: "elixir-nx/scholar"}
 ])
+
+Nx.global_default_backend(EXLA.Backend)
 ```
 
 ## Fetching The Dataset
@@ -130,7 +133,12 @@ defmodule SplitTrainTest do
   end
 end
 
-{train_split, _} = SplitTrainTest.run()
+{train_split, test_split} = SplitTrainTest.run()
+
+# get rid of income_cat. That was only for creating stratified shuffle
+clear_cat = fn v -> Explorer.DataFrame.discard(v, "income_cat") end
+train_split = clear_cat.(train_split)
+test_split = clear_cat.(test_split)
 ```
 
 ## Data Exploration Phase
@@ -143,15 +151,67 @@ Some things to do
 * Look at linear and nonlinear corelations related to the data (review pearson's r to get linear corelations)
 * Derive values from the original values and see if there are any interesting things to discover about the derived data points (eg: bedrooms/household...)
 
-<!-- livebook:{"attrs":{"chart_title":null,"height":400,"layers":[{"chart_type":"boxplot","color_field":"median_house_value","color_field_aggregate":null,"color_field_bin":false,"color_field_scale_scheme":null,"color_field_type":"quantitative","data_variable":"train_split","x_field":"housing_median_age","x_field_aggregate":null,"x_field_bin":false,"x_field_scale_type":null,"x_field_type":"quantitative","y_field":"median_income","y_field_aggregate":null,"y_field_bin":false,"y_field_scale_type":null,"y_field_type":"quantitative"}],"vl_alias":"Elixir.VegaLite","width":400},"chunks":null,"kind":"Elixir.KinoVegaLite.ChartCell","livebook_object":"smart_cell"} -->
+## Data Transformation Pipeline
+
+After fiddling around with the data and getting a feel for what your data looks like and identifying some possible relationships you can now start transforming that data into something a machine learning model will be able to understand.
+
+The generally involves 3 sorts of tasks
+
+* Handling missing values - Either delete them or fill them with a value like the mean
+* Encoding binary features - Like distance_from_ocean. Use one_hot encoding for this
+* handling numeric values - house_value and house_median_income vary wildly. Use regularization/standardization to fix that
 
 ```elixir
-VegaLite.new(width: 400, height: 400)
-|> VegaLite.data_from_values(train_split,
-  only: ["housing_median_age", "median_income", "median_house_value"]
-)
-|> VegaLite.mark(:boxplot)
-|> VegaLite.encode_field(:x, "housing_median_age", type: :quantitative)
-|> VegaLite.encode_field(:y, "median_income", type: :quantitative)
-|> VegaLite.encode_field(:color, "median_house_value", type: :quantitative)
+# convert ocean proximity to a number
+feature_to_number =
+  Explorer.Series.distinct(train_split["ocean_proximity"])
+  |> Explorer.Series.to_enum()
+  |> Enum.reduce([], fn n, acc -> acc ++ ["#{n}": length(acc)] end)
+
+encoded_ocean_proximity =
+  Explorer.Series.transform(train_split["ocean_proximity"], fn colname ->
+    feature_to_number[:"#{colname}"]
+  end)
+
+train_split =
+  train_split
+  |> Explorer.DataFrame.put("ocean_proximity", encoded_ocean_proximity)
+
+# convert nil to nan so NX understands them
+train_split =
+  train_split
+  |> Explorer.DataFrame.names()
+  |> Enum.reduce(train_split, fn colname, split ->
+    if Explorer.Series.dtype(split[colname]) == :float do
+      Explorer.DataFrame.put(split, colname, Explorer.Series.fill_missing(split[colname], :nan))
+    else
+      split
+    end
+  end)
+
+# TODO: add one hot encoding for ocean_proximity 
+
+# Explorer is no longer needed. 
+# Everything from here on out will be done with Nx. Convert data to Nx
+
+train_label_split =
+  train_split["median_house_value"]
+  |> Explorer.Series.to_tensor()
+
+train_split =
+  Explorer.DataFrame.discard(train_split, "median_house_value")
+  |> Nx.stack(axis: 1)
+
+# Handle missing values in training data with the median
+train_split =
+  train_split
+  |> Scholar.Impute.SimpleImputer.fit(strategy: :median)
+  |> Scholar.Impute.SimpleImputer.transform(train_split)
+
+model = Scholar.Linear.LinearRegression.fit(train_split, train_label_split)
+```
+
+```elixir
+predictions = Scholar.Linear.LinearRegression.predict(model, train_split)
+Scholar.Metrics.mean_absolute_error(train_label_split, predictions)
 ```
