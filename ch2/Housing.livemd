@@ -189,7 +189,7 @@ train_split =
     end
   end)
 
-# TODO: add one hot encoding for ocean_proximity 
+# Possible idea: Use one hot encoding for ocean proximity
 
 # Explorer is no longer needed. 
 # Everything from here on out will be done with Nx. Convert data to Nx
@@ -207,11 +207,14 @@ train_split =
   train_split
   |> Scholar.Impute.SimpleImputer.fit(strategy: :median)
   |> Scholar.Impute.SimpleImputer.transform(train_split)
-
-model = Scholar.Linear.LinearRegression.fit(train_split, train_label_split)
 ```
 
+## Testing Various Models
+
+Normally, this is the part where we compare the results of multiple machine learning models to decide what model to use in production. But since Scholar only has linear regression we will stick to that. When the Elixir ecosystem is more robust this section would ideally compare the results of support vector regression random forest regression decision tree regression gradient boosted regression etc.
+
 ```elixir
+model = Scholar.Linear.LinearRegression.fit(train_split, train_label_split)
 predictions = Scholar.Linear.LinearRegression.predict(model, train_split)
 Scholar.Metrics.mean_absolute_error(train_label_split, predictions)
 ```
