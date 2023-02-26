@@ -1,21 +1,15 @@
 # Handsonml
 
-**TODO: Add description**
+This is one of my projects. The idea is to learn machine learning with Elixir. But I couldn't find any good resources to learn ML with Elixir. So I embarked on a seperate path. That path started with a single question:
 
-## Installation
+"What if I learned the material whithout using an elixir resource?"
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `handsonml` to your list of dependencies in `mix.exs`:
+That is where this project got started. I decided to pick up a copy of Hands on machine learning with scikit-learn, keras, and tensorflow. Except I'd do all the code with elixir.
 
-```elixir
-def deps do
-  [
-    {:handsonml, "~> 0.1.0"}
-  ]
-end
-```
+It sounded like an idea a genius would come up with... But things weren't as simple as they seemed.
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/handsonml>.
+The main issue I ran into is that there simply weren't any libraries that matched scikit learn in the elixir world. So I ended up having to implement a bunch of ideas on my own. Such as Stratified shuffling.
 
+Is this a good way to learn? Yes, but it won't be easy.
+
+TO BE CONTINUED
